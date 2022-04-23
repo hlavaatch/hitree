@@ -219,6 +219,96 @@ impl <T> HiSet<T>
         }
     }
 
+
+    /// Borrow value from set by key reference.
+    /// Reference type of key must have the same `Ord` ordering as `&T`.
+    ///
+    /// # Examples:
+    /// ```
+    ///     # use hitree::hiset::HiSet;
+    ///     let mut set = HiSet::<String>::new();
+    ///     set.insert("This");
+    ///     set.insert("is");
+    ///     set.insert("a");
+    ///     set.insert("test!");
+    ///
+    ///     assert_eq!(set.get("test!"), Some(&"test!".to_string()));
+    ///     assert_eq!(set.get("not there"), None);
+    ///     assert_eq!(set.get(&"This".to_string()), Some(&"This".to_string()));
+    /// ```
+    pub fn get<KEY>(&mut self, key: &KEY) -> Option<&T>
+        where KEY: ?Sized + Ord, T: Borrow<KEY>
+    {
+        let mut current_node = self.root.node();
+        loop {
+            match current_node {
+                None => return None,
+                Some(node) => {
+                    match Ord::cmp(node.value.borrow(), key) {
+                        Ordering::Greater => {
+                            // index must be in the left subtree
+                            current_node = node.left.node();
+                        },
+                        Ordering::Equal => {
+                            // found it, its this node
+                            return Some(node.borrow_value::<T>())
+                        },
+                        Ordering::Less => {
+                            // index must be in the right subtree
+                            current_node = node.right.node();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Borrow mutably value from set by key reference.
+    /// Reference type of key must have the same `Ord` ordering as `&T`.
+    ///
+    /// # Examples:
+    /// ```
+    ///     # use hitree::hiset::HiSet;
+    ///     let mut set = HiSet::<String>::new();
+    ///     set.insert("This");
+    ///     set.insert("is");
+    ///     set.insert("a");
+    ///     set.insert("test!");
+    ///
+    ///     assert_eq!(set.get_mut("test!"), Some(&mut "test!".to_string()));
+    ///     assert_eq!(set.get_mut("not there"), None);
+    ///     assert_eq!(set.get_mut(&"This".to_string()), Some(&mut "This".to_string()));
+    ///```
+    pub fn get_mut<KEY>(&mut self, key: &KEY) -> Option<&mut T>
+        where KEY: ?Sized + Ord, T: Borrow<KEY>
+    {
+        let mut current_node = self.root.node_mut();
+        loop {
+            match current_node {
+                None => return None,
+                Some(node) => {
+                    match Ord::cmp(node.value.borrow(), key) {
+                        Ordering::Greater => {
+                            // index must be in the left subtree
+                            current_node = node.left.node_mut();
+                        },
+                        Ordering::Equal => {
+                            // found it, its this node
+                            return Some(node.borrow_value_mut::<T>())
+                        },
+                        Ordering::Less => {
+                            // index must be in the right subtree
+                            current_node = node.right.node_mut();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
+
+
     /// Remove the smallest value from the set and return it.
     ///
     /// Examples:

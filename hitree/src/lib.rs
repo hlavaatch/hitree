@@ -12,6 +12,7 @@
 //! | Insert with automatic conversion | [insert](`hiset::HiSet<T>::insert`) | todo |
 //! | Borrow value by index | [get_by_index](`hiset::HiSet<T>::get_by_index<B>`) <br>[get_by_index_mut](`hiset::HiSet<T>::get_by_index_mut<B>`) | todo |
 //! | Borrow value by key | [get](`hiset::HiSet<T>::get<KEY>`) <br>[get_mut](`hiset::HiSet<T>::get_mut<KEY>`) | todo |
+//! | Find index of value by key | [index_of](`hiset::HiSet<T>::index_of<KEY>`) | todo |
 //! | Remove first/last entry | [take_first](`hiset::HiSet<T>::take_first`) <br>[take_last](`hiset::HiSet<T>::take_last`) | todo |
 //! | Remove entry by index | [take_by_index](`hiset::HiSet<T>::take_by_index`) | todo |
 //! | Remove entry by key reference | [take](`hiset::HiSet<T>::take`) | todo |

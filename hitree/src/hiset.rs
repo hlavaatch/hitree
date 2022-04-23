@@ -308,6 +308,54 @@ impl <T> HiSet<T>
 
 
 
+    /// Find index of value given by key reference.
+    ///
+    /// # Examples:
+    /// ```
+    ///     # use hitree::hiset::HiSet;
+    ///     let mut set = HiSet::<String>::new();
+    ///     set.insert("This");
+    ///     set.insert("is");
+    ///     set.insert("a");
+    ///     set.insert("test!");
+    ///
+    ///     assert_eq!(set.index_of("This"), Some(0));
+    ///     assert_eq!(set.index_of("a"), Some(1));
+    ///     assert_eq!(set.index_of("is"), Some(2));
+    ///     assert_eq!(set.index_of("test!"), Some(3));
+    ///     assert_eq!(set.index_of("nonexistent"), None);
+    ///
+    /// ```
+    pub fn index_of<KEY>(&mut self, key: &KEY) -> Option<usize>
+        where KEY: ?Sized + Ord, T: Borrow<KEY>
+    {
+        let mut current_node = self.root.node();
+        let mut current_index_shift = 0;
+        loop {
+            match current_node {
+                None => return None,
+                Some(node) => {
+                    match Ord::cmp(node.value.borrow(), key) {
+                        Ordering::Greater => {
+                            // index must be in the left subtree
+                            current_node = node.left.node();
+                        },
+                        Ordering::Equal => {
+                            // found it, its this node
+                            return Some(current_index_shift + node.left.count)
+                        },
+                        Ordering::Less => {
+                            // index must be in the right subtree
+                            current_node = node.right.node();
+                            current_index_shift += 1 + node.left.count;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
 
     /// Remove the smallest value from the set and return it.
     ///
@@ -875,4 +923,42 @@ fn test_hiset_new() {
     let _set = HiSet::<String>::new();
 }
 
+#[test]
+fn test_hiset_index_of() {
+    let mut s = HiSet::<String>::new();
+    s.insert("4");
+    s.insert("2");
+    s.insert("0");
+    s.insert("1");
+    s.insert("3");
 
+    assert_eq!(s.index_of("0"), Some(0));
+    assert_eq!(s.index_of("1"), Some(1));
+    assert_eq!(s.index_of("2"), Some(2));
+    assert_eq!(s.index_of("3"), Some(3));
+    assert_eq!(s.index_of("4"), Some(4));
+    assert_eq!(s.index_of("5"), None);
+
+    s.take("2");
+
+    assert_eq!(s.index_of("0"), Some(0));
+    assert_eq!(s.index_of("1"), Some(1));
+    assert_eq!(s.index_of("2"), None);
+    assert_eq!(s.index_of("3"), Some(2));
+    assert_eq!(s.index_of("4"), Some(3));
+    assert_eq!(s.index_of("5"), None);
+
+
+    let mut set = HiSet::<String>::new();
+    set.insert("This");
+    set.insert("is");
+    set.insert("a");
+    set.insert("test!");
+
+    assert_eq!(set.index_of("This"), Some(0));
+    assert_eq!(set.index_of("is"), Some(2));
+    assert_eq!(set.index_of("a"), Some(1));
+    assert_eq!(set.index_of("test!"), Some(3));
+    assert_eq!(set.index_of("nonexistent"), None);
+
+}

@@ -181,15 +181,15 @@ impl <T> HiSet<T>
     ///     hiset.insert(TestValue::new("second"));
     ///     hiset.insert(TestValue::new("third"));
     ///
-    ///     hiset.get_mut_by_index(0).map(|value| value.touch() );
-    ///     hiset.get_mut_by_index(2).map(|value| { value.touch(); value.touch();} );
+    ///     hiset.get_by_index_mut(0).map(|value| value.touch() );
+    ///     hiset.get_by_index_mut(2).map(|value| { value.touch(); value.touch();} );
     ///
     ///     assert_eq!(hiset.get_by_index(0).unwrap().data, 1);
     ///     assert_eq!(hiset.get_by_index(1).unwrap().data, 0);
     ///     assert_eq!(hiset.get_by_index(2).unwrap().data, 2);
     /// ```
     ///
-    pub fn get_mut_by_index<B>(&mut self, index: usize) -> Option<&mut B>
+    pub fn get_by_index_mut<B>(&mut self, index: usize) -> Option<&mut B>
         where T: BorrowMut<B>,
               B: ?Sized
     {
@@ -231,17 +231,17 @@ impl <T> HiSet<T>
     ///     set.insert(5);
     ///
     ///     assert_eq!(set.len(), 3);
-    ///     assert_eq!(set.remove_first(), Some(5));
+    ///     assert_eq!(set.take_first(), Some(5));
     ///     assert_eq!(set.len(), 2);
-    ///     assert_eq!(set.remove_first(), Some(10));
+    ///     assert_eq!(set.take_first(), Some(10));
     ///     assert_eq!(set.len(), 1);
-    ///     assert_eq!(set.remove_first(), Some(15));
+    ///     assert_eq!(set.take_first(), Some(15));
     ///     assert_eq!(set.len(), 0);
-    ///     assert_eq!(set.remove_first(), None);
+    ///     assert_eq!(set.take_first(), None);
     /// ```
     ///
-    pub fn remove_first(&mut self) -> Option<T> {
-        self.root.remove_first().map(|node| node.value )
+    pub fn take_first(&mut self) -> Option<T> {
+        self.root.take_leftmost_node().map(|node| node.value )
     }
 
     /// Remove the largest value from the set and return it.
@@ -256,20 +256,46 @@ impl <T> HiSet<T>
     ///     set.insert(5);
     ///
     ///     assert_eq!(set.len(), 3);
-    ///     assert_eq!(set.remove_last(), Some(15));
+    ///     assert_eq!(set.take_last(), Some(15));
     ///     assert_eq!(set.len(), 2);
-    ///     assert_eq!(set.remove_last(), Some(10));
+    ///     assert_eq!(set.take_last(), Some(10));
     ///     assert_eq!(set.len(), 1);
-    ///     assert_eq!(set.remove_last(), Some(5));
+    ///     assert_eq!(set.take_last(), Some(5));
     ///     assert_eq!(set.len(), 0);
-    ///     assert_eq!(set.remove_first(), None);
+    ///     assert_eq!(set.take_first(), None);
     /// ```
     ///
-    pub fn remove_last(&mut self) -> Option<T> {
-        self.root.remove_last().map(|node| node.value )
+    pub fn take_last(&mut self) -> Option<T> {
+        self.root.take_rightmost_node().map(|node| node.value )
     }
 
 
+    /// Take an entry by reference to another value and return it.
+    /// Whatever you use as key must give the same Ord results as Ord on &T!
+    ///
+    ///  # Examples:
+    ///
+    /// ```
+    ///     # use hitree::hiset::HiSet;
+    ///     let mut set = HiSet::<String>::new();
+    ///     assert_eq!(set.insert("first"), true);
+    ///     assert_eq!(set.insert("second"), true);
+    ///     assert_eq!(set.insert("third"), true);
+    ///     assert_eq!(set.len(), 3);
+    ///
+    ///     assert_eq!(set.take("second").unwrap().as_str(), "second");
+    ///     assert_eq!(set.len(), 2);
+    ///     assert_eq!(set.take("second"), None);
+    ///
+    ///     assert_eq!(set.take(&"third".to_string()).unwrap().as_str(), "third");
+    ///     assert_eq!(set.len(), 1);
+    /// ```
+    pub fn take<KEY>(&mut self, key: &KEY) -> Option<T>
+        where KEY: ?Sized + Ord, T: Borrow<KEY>
+    {
+        let key = key.borrow();
+        self.root.take_node_by_key(key).map(|node| node.value )
+    }
 
 
 
@@ -300,7 +326,7 @@ impl <T> Ref<T>
         std::mem::take(&mut *self)
     }
 
-    fn take_left(&mut self) -> Ref<T> {
+    fn take_left_subtree(&mut self) -> Ref<T> {
         match self.node_mut() {
             None => Ref::default(),
             Some(node) => {
@@ -311,7 +337,7 @@ impl <T> Ref<T>
         }
     }
 
-    fn take_right(&mut self) -> Ref<T> {
+    fn take_right_subtree(&mut self) -> Ref<T> {
         match self.node_mut() {
             None => Ref::default(),
             Some(node) => {
@@ -320,6 +346,10 @@ impl <T> Ref<T>
                 right
             },
         }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.node.is_none()
     }
 
     /*
@@ -371,8 +401,8 @@ impl <T> Ref<T>
     #[inline]
     fn rotate_left(&mut self) {
         let mut old_root = self.take();
-        let mut new_root = old_root.take_right();
-        let mid_subtree = new_root.take_left();
+        let mut new_root = old_root.take_right_subtree();
+        let mid_subtree = new_root.take_left_subtree();
         old_root.set_right(mid_subtree);
         new_root.set_left(old_root);
         *self = new_root;
@@ -391,8 +421,8 @@ impl <T> Ref<T>
     #[inline]
     fn rotate_right(&mut self) {
         let mut old_root = self.take();
-        let mut new_root = old_root.take_left();
-        let mid_subtree = new_root.take_right();
+        let mut new_root = old_root.take_left_subtree();
+        let mid_subtree = new_root.take_right_subtree();
         old_root.set_left(mid_subtree);
         new_root.set_right(old_root);
         *self = new_root;
@@ -442,11 +472,11 @@ impl <T> Ref<T>
     }
 
     /// Remove leftmost node from the subtree.
-    fn remove_first(&mut self) -> Option<Box<Node<T>>> {
+    fn take_leftmost_node(&mut self) -> Option<Box<Node<T>>> {
         match self.node_mut() {
             None => None,   // no node here, tell caller to remove his node
             Some(node) => {
-                match node.left.remove_first() {
+                match node.left.take_leftmost_node() {
                     None => {
                         // there is no left node, we are the node to remove!
                         let mut removed_node = self.node.take().unwrap();
@@ -466,11 +496,11 @@ impl <T> Ref<T>
     }
 
     /// Remove rightmost node from the subtree.
-    fn remove_last(&mut self) -> Option<Box<Node<T>>> {
+    fn take_rightmost_node(&mut self) -> Option<Box<Node<T>>> {
         match self.node_mut() {
             None => None,   // no node here, tell caller to remove his node
             Some(node) => {
-                match node.right.remove_first() {
+                match node.right.take_leftmost_node() {
                     None => {
                         // there is no left node, we are the node to remove!
                         let mut removed_node = self.node.take().unwrap();
@@ -488,6 +518,89 @@ impl <T> Ref<T>
             }
         }
     }
+
+    fn take_node_by_key<KEY>(&mut self, key: &KEY) -> Option<Box<Node<T>>>
+        where KEY: ?Sized + Ord,
+            T: Borrow<KEY>
+    {
+        let res = if let Some(node) = self.node_mut() {
+            match Ord::cmp(node.value.borrow(), key) {
+                Ordering::Equal => {    // this is the node to remove
+                    match (node.left.is_empty(), node.right.is_empty()) {
+                        (true, true) => {    // leaf node, can be removed directly without consequences
+                            self.node.take()
+                        },
+                        (false, true) => {   // there is a left subrtree, move it up
+                            let mut removed_node = self.node.take().unwrap();
+                            *self = removed_node.left.take();
+                            Some(removed_node)
+                        },
+                        (true, false) => {   // there is a right subtree, move it up
+                            let mut removed_node = self.node.take().unwrap();
+                            *self = removed_node.right.take();
+                            Some(removed_node)
+                        }
+                        (false, false) => {  // there are two subtrees, take the closest node from the one with more nodes and replace the removed node with it
+                            let mut removed_node = self.node.take().unwrap();
+                            let mut left_subtree = removed_node.left.take();
+                            let mut right_subtree = removed_node.right.take();
+                            let mut new_subtree_root_node = if left_subtree.count > right_subtree.count {
+                                left_subtree.take_rightmost_node().unwrap()
+                            } else {
+                                right_subtree.take_leftmost_node().unwrap()
+                            };
+                            new_subtree_root_node.left = left_subtree;
+                            new_subtree_root_node.right = right_subtree;
+                            let new_count = new_subtree_root_node.count();
+                            self.node = Some(new_subtree_root_node);
+                            self.count = new_count;
+                            // balance should not be an issue, we took from the bigger one
+                            Some(removed_node)
+                        }
+                    }
+                },
+                Ordering::Less => {     // node must be in the right subtree
+                    let removed_node_maybe = node.right.take_node_by_key(key);
+                    match removed_node_maybe {
+                        None => None,   // not found
+                        Some(removed_node) => {
+                            Some(removed_node)
+                        }
+                    }
+                },
+                Ordering::Greater => {  // node must be in the left subtree
+                    match node.left.take_node_by_key(key) {
+                        None => None,
+                        Some(removed_node) => {
+                            Some(removed_node)
+                        }
+                    }
+                }
+            }
+        } else {
+            None
+        };
+        if res.is_some() {
+            self.rebalance();
+        }
+        res
+    }
+
+
+    fn rebalance(&mut self) {
+        if let Some(node) = self.node() {
+            self.count = node.count();
+            let balance = self.balance();
+            if balance < -1 {
+                self.rotate_right();
+            } else if balance > 1 {
+                self.rotate_left();
+            }
+        } else {
+            self.count = 0;
+        };
+    }
+
 
 }
 

@@ -1,13 +1,17 @@
 //use std::fmt::{Debug,Display,Formatter};
 
-use std::borrow::{Borrow, BorrowMut, ToOwned};
+use std::borrow::{Borrow, BorrowMut};
 use std::cmp::Ordering;
 use super::tree_height;
 
+/// Ordered set of values, accessible by value or index of value in the set.
+/// Stores values in a balanced binary tree with subtree node count tracking.
+/// Nodes are allocated on the heap using `Box`.
 pub struct HiSet<T: Ord> {
     root: Ref<T>,
 }
 
+/// Reference to a subtree of Nodes, including node count of subtree pointed to by it.
 struct Ref<T>
     where T: Ord
 {
@@ -15,6 +19,10 @@ struct Ref<T>
     node: Option<Box<Node<T>>>,
 }
 
+/// Node holding a value and references to the left (lesser) and right (greater) subtrees.
+/// Left and right subtrees are always balanced - they may differ by at most one level of depth,
+/// and all the inner nodes of the tree (all levels except the one furthest from the root)
+/// must contain both left and right subtrees that are also balanced.
 struct Node<T>
     where T: Ord
 {
@@ -35,10 +43,9 @@ impl <T> HiSet<T>
     /// # Examples:
     ///
     /// ```
-    /// # #[allow(unused_mut)]
-    ///     use hitree::hiset::HiSet;
+    ///     # #[allow(unused_mut)]
+    ///     # use hitree::hiset::HiSet;
     ///     let mut set = HiSet::<String>::new();
-    ///
     /// ```
     pub fn new() -> HiSet<T> {
         HiSet { root: Ref::default() }
@@ -51,11 +58,9 @@ impl <T> HiSet<T>
     /// # Examples:
     ///
     /// ```
-    ///     use hitree::hiset::HiSet;
-    ///
+    ///     # use hitree::hiset::HiSet;
     ///     let hiset = HiSet::<i32>::new();
     ///     assert_eq!(hiset.len(), 0);
-    ///
     /// ```
     pub fn len(&self) -> usize {
         self.root.count
@@ -70,16 +75,16 @@ impl <T> HiSet<T>
     /// # Examples:
     ///
     /// ```
-    ///     use hitree::hiset::HiSet;
+    ///     # use hitree::hiset::HiSet;
     ///     let mut hiset = HiSet::<i32>::new();
     ///     assert_eq!(hiset.insert(1), true);
     ///     assert_eq!(hiset.insert(2), true);
     ///     assert_eq!(hiset.insert(1), false);
     ///     assert_eq!(hiset.len(), 2);
     /// ```
-    /// You can insert &str into HiSet<String> for example:
+    /// You can insert &str into `HiSet<String>` for example:
     /// ```
-    ///     use hitree::hiset::HiSet;
+    ///     # use hitree::hiset::HiSet;
     ///     let mut hiset = HiSet::<String>::new(); // This is a set of Strings
     ///     assert_eq!(hiset.insert("This can be converted to a String"), true);
     /// ```
@@ -88,17 +93,16 @@ impl <T> HiSet<T>
     }
 
 
-    /// Get a borrowed value from set by index.
+    /// Get a shared borrow of value from set by index.
     /// Values in the set are sorted according to their Ord trait,
     /// index 0 is the smallest value.
-    /// Borrowed value can be any reference type that can be borrowed from T.
-    /// You can use it to borrow &str from HiSet<String> for example.
+    /// Borrowed value can be any shared reference type that can be borrowed from T.
+    /// You can use it to borrow `&str` from `HiSet<String>` for example.
     ///
     /// # Examples:
     ///
     /// ```
-    ///     use hitree::hiset::HiSet;
-    ///
+    ///     # use hitree::hiset::HiSet;
     ///     let mut hiset = HiSet::<String>::new();
     ///     hiset.insert("This");
     ///     hiset.insert("is");
@@ -114,10 +118,9 @@ impl <T> HiSet<T>
     ///     assert_eq!(hiset.get_by_index::<str>(4), None );
     /// ```
     ///
-
     pub fn get_by_index<B>(&self, index: usize) -> Option<&B>
         where T: Borrow<B>,
-              B: ?Sized + ToOwned<Owned=T>
+              B: ?Sized
     {
         let mut index_to_find = index;
         let mut current_node = self.root.node();
@@ -144,6 +147,104 @@ impl <T> HiSet<T>
             }
         }
     }
+
+    /// Get a mutable borrow of value from set by index.
+    /// Values in the set are sorted according to their Ord trait,
+    /// index 0 is the smallest value.
+    /// Borrowed value can be any mutable reference type that can be borrowed from T.
+    /// WARNING: You must never change the borrowed value in a way that would affect its ordering according to
+    /// its Ord trait implementation!
+    ///
+    /// # Examples:
+    ///
+    /// ```
+    ///     # use std::cmp::Ordering;
+    ///     # use hitree::hiset::HiSet;
+    ///
+    ///     struct TestValue {
+    ///         ordering: String,
+    ///         data: usize,
+    ///     }
+    ///
+    ///     impl TestValue {
+    ///         pub fn new(ordering: impl Into<String>) -> Self { TestValue { ordering: ordering.into(), data: 0 }}
+    ///         pub fn touch(&mut self) { self.data += 1; }
+    ///     }
+    ///     impl PartialEq for TestValue { fn eq(&self, other: &Self) -> bool { self.ordering.eq(&other.ordering) } }
+    ///     impl Eq for TestValue {}
+    ///     impl PartialOrd for TestValue { fn partial_cmp(&self, other: &Self) -> Option<Ordering> { self.ordering.partial_cmp(&other.ordering) } }
+    ///     impl Ord for TestValue { fn cmp(&self, other: &Self) -> Ordering { self.ordering.cmp(&other.ordering) } }
+    ///
+    ///
+    ///     let mut hiset = HiSet::<TestValue>::new();
+    ///     hiset.insert(TestValue::new("first"));
+    ///     hiset.insert(TestValue::new("second"));
+    ///     hiset.insert(TestValue::new("third"));
+    ///
+    ///     hiset.get_mut_by_index(0).map(|value| value.touch() );
+    ///     hiset.get_mut_by_index(2).map(|value| { value.touch(); value.touch();} );
+    ///
+    ///     assert_eq!(hiset.get_by_index(0).unwrap().data, 1);
+    ///     assert_eq!(hiset.get_by_index(1).unwrap().data, 0);
+    ///     assert_eq!(hiset.get_by_index(2).unwrap().data, 2);
+    /// ```
+    ///
+    pub fn get_mut_by_index<B>(&mut self, index: usize) -> Option<&mut B>
+        where T: BorrowMut<B>,
+              B: ?Sized
+    {
+        let mut index_to_find = index;
+        let mut current_node = self.root.node_mut();
+        loop {
+            match current_node {
+                None => return None,
+                Some(node) => {
+                    match node.left.count.cmp(&index_to_find) {
+                        Ordering::Greater => {
+                            // index must be in the left subtree
+                            current_node = node.left.node_mut();
+                        },
+                        Ordering::Equal => {
+                            // found it, its this node
+                            return Some(node.borrow_value_mut())
+                        },
+                        Ordering::Less => {
+                            // index must be in the right subtree
+                            index_to_find = index_to_find - 1 - node.left.count;
+                            current_node = node.right.node_mut();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Remove the smallest value from the set and return it.
+    ///
+    /// Examples:
+    ///
+    /// ```
+    ///     # use hitree::hiset::HiSet;
+    ///     let mut hiset = HiSet::<i32>::new();
+    ///     hiset.insert(10);
+    ///     hiset.insert(15);
+    ///     hiset.insert(5);
+    ///
+    ///     assert_eq!(hiset.remove_first(), Some(5));
+    ///     assert_eq!(hiset.remove_first(), Some(10));
+    ///     assert_eq!(hiset.remove_first(), Some(15));
+    ///     assert_eq!(hiset.remove_first(), None);
+    /// ```
+    ///
+    pub fn remove_first(&mut self) -> Option<T> {
+        todo!()
+    }
+
+
+
+
+
+
 }
 
 impl <T> Ref<T>
@@ -191,6 +292,7 @@ impl <T> Ref<T>
         }
     }
 
+    /*
     #[inline]
     fn left_count(&self) -> usize {
         match self.node() {
@@ -206,6 +308,7 @@ impl <T> Ref<T>
             Some(node) => node.right.count,
         }
     }
+    */
 
     #[inline]
     fn balance(&self) -> isize {
@@ -304,19 +407,19 @@ impl <T> Ref<T>
                         }
                     }
                 }
-
-
-
-
-
             }
         }
     }
+
+
+
+
 }
 
 impl <T> Default for Ref<T>
     where T: Ord
 {
+    /// Empty reference
     fn default() -> Self {
         Self { count: 0, node: None }
     }
@@ -325,31 +428,34 @@ impl <T> Default for Ref<T>
 impl <T> Node<T>
     where T: Ord
 {
-
+    /// Creates a new Node with given value and empty left & right refs
     fn new(value: impl Into<T>) -> Box<Node<T>> {
         Box::new( Node { value: value.into(), left: Ref::default(), right: Ref::default() } )
     }
 
+    /// Calculate number of nodes including this node and any subtrees pointed to by left & right
     fn count(&self) -> usize {
         self.left.count + self.right.count + 1
     }
 
-    // returns difference in height between right and left subtrees. >0 right is bigger, <0 left is bigger.
+    /// returns difference in height between right and left subtrees. >0 right is bigger, <0 left is bigger.
     #[inline]
     fn balance(&self) -> isize {
         tree_height(self.right.count) - tree_height(self.left.count)
     }
 
+    /// Borrow value of this node immutably
     pub fn borrow_value<B>(&self) -> &B
         where   T: Borrow<B>,
-                B: ?Sized + ToOwned<Owned=T>,
+                B: ?Sized
     {
         self.value.borrow()
     }
 
+    /// Borrow value of this node mutably
     pub fn borrow_value_mut<B>(&mut self) -> &mut B
         where   T: BorrowMut<B>,
-                B: ?Sized + ToOwned<Owned=T>,
+                B: ?Sized
     {
         self.value.borrow_mut()
     }

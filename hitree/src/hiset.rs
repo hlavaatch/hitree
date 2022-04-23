@@ -225,27 +225,57 @@ impl <T> HiSet<T>
     ///
     /// ```
     ///     # use hitree::hiset::HiSet;
-    ///     let mut hiset = HiSet::<i32>::new();
-    ///     hiset.insert(10);
-    ///     hiset.insert(15);
-    ///     hiset.insert(5);
+    ///     let mut set = HiSet::<i32>::new();
+    ///     set.insert(10);
+    ///     set.insert(15);
+    ///     set.insert(5);
     ///
-    ///     assert_eq!(hiset.remove_first(), Some(5));
-    ///     assert_eq!(hiset.remove_first(), Some(10));
-    ///     assert_eq!(hiset.remove_first(), Some(15));
-    ///     assert_eq!(hiset.remove_first(), None);
+    ///     assert_eq!(set.len(), 3);
+    ///     assert_eq!(set.remove_first(), Some(5));
+    ///     assert_eq!(set.len(), 2);
+    ///     assert_eq!(set.remove_first(), Some(10));
+    ///     assert_eq!(set.len(), 1);
+    ///     assert_eq!(set.remove_first(), Some(15));
+    ///     assert_eq!(set.len(), 0);
+    ///     assert_eq!(set.remove_first(), None);
     /// ```
     ///
     pub fn remove_first(&mut self) -> Option<T> {
-        todo!()
+        self.root.remove_first().map(|node| node.value )
+    }
+
+    /// Remove the largest value from the set and return it.
+    ///
+    /// Examples:
+    ///
+    /// ```
+    ///     # use hitree::hiset::HiSet;
+    ///     let mut set = HiSet::<i32>::new();
+    ///     set.insert(10);
+    ///     set.insert(15);
+    ///     set.insert(5);
+    ///
+    ///     assert_eq!(set.len(), 3);
+    ///     assert_eq!(set.remove_last(), Some(15));
+    ///     assert_eq!(set.len(), 2);
+    ///     assert_eq!(set.remove_last(), Some(10));
+    ///     assert_eq!(set.len(), 1);
+    ///     assert_eq!(set.remove_last(), Some(5));
+    ///     assert_eq!(set.len(), 0);
+    ///     assert_eq!(set.remove_first(), None);
+    /// ```
+    ///
+    pub fn remove_last(&mut self) -> Option<T> {
+        self.root.remove_last().map(|node| node.value )
     }
 
 
 
 
 
-
 }
+
+//---------------- Ref -------------------------------------------------------
 
 impl <T> Ref<T>
     where T: Ord
@@ -370,7 +400,7 @@ impl <T> Ref<T>
 
 
 
-
+    /// insert is recursive as it needs to balance the tree on the way back up
     fn insert(&mut self, new_node: Box<Node<T>>) -> bool {
         match self.node_mut() {
             None => {   // there are no nodes in subtree rooted at this Ref.
@@ -378,7 +408,7 @@ impl <T> Ref<T>
                 true    // we have inserted a value, return true
             },
             Some(node) => {     // There is at least one node
-                match Ord::cmp(node,&new_node.as_ref()) {
+                match Ord::cmp(&node.value,&new_node.value) {
                     Ordering::Equal => {
                         false   // already in there, return false
                     },
@@ -411,8 +441,53 @@ impl <T> Ref<T>
         }
     }
 
+    /// Remove leftmost node from the subtree.
+    fn remove_first(&mut self) -> Option<Box<Node<T>>> {
+        match self.node_mut() {
+            None => None,   // no node here, tell caller to remove his node
+            Some(node) => {
+                match node.left.remove_first() {
+                    None => {
+                        // there is no left node, we are the node to remove!
+                        let mut removed_node = self.node.take().unwrap();
+                        *self = removed_node.right.take();
+                        Some(removed_node)
+                    },
+                    Some(removed_node) => {
+                        self.count -= 1;    // one node has been removed
+                        if self.balance() > 1 {     // if we are too right leaning now, restore balance
+                            self.rotate_left();
+                        }
+                        Some(removed_node)
+                    }
+                }
+            }
+        }
+    }
 
-
+    /// Remove rightmost node from the subtree.
+    fn remove_last(&mut self) -> Option<Box<Node<T>>> {
+        match self.node_mut() {
+            None => None,   // no node here, tell caller to remove his node
+            Some(node) => {
+                match node.right.remove_first() {
+                    None => {
+                        // there is no left node, we are the node to remove!
+                        let mut removed_node = self.node.take().unwrap();
+                        *self = removed_node.left.take();
+                        Some(removed_node)
+                    },
+                    Some(removed_node) => {
+                        self.count -= 1;    // one node has been removed
+                        if self.balance() < -1 {     // if we are too right leaning now, restore balance
+                            self.rotate_right();
+                        }
+                        Some(removed_node)
+                    }
+                }
+            }
+        }
+    }
 
 }
 
@@ -424,6 +499,12 @@ impl <T> Default for Ref<T>
         Self { count: 0, node: None }
     }
 }
+
+
+//--------------- Node ------------------------------------------------------------
+
+
+
 
 impl <T> Node<T>
     where T: Ord
@@ -464,7 +545,7 @@ impl <T> Node<T>
 
 
 }
-
+/*
 // Compare Nodes by their values
 impl <T: Ord> PartialEq for Node<T> {
     fn eq(&self, other: &Self) -> bool {
@@ -484,7 +565,7 @@ impl <T: Ord> Ord for Node<T> {
         self.value.cmp(&other.value)
     }
 }
-
+*/
 
 
 

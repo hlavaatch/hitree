@@ -262,7 +262,7 @@ impl <T> HiSet<T>
     ///     assert_eq!(set.len(), 1);
     ///     assert_eq!(set.take_last(), Some(5));
     ///     assert_eq!(set.len(), 0);
-    ///     assert_eq!(set.take_first(), None);
+    ///     assert_eq!(set.take_last(), None);
     /// ```
     ///
     pub fn take_last(&mut self) -> Option<T> {
@@ -289,6 +289,7 @@ impl <T> HiSet<T>
     ///
     ///     assert_eq!(set.take(&"third".to_string()).unwrap().as_str(), "third");
     ///     assert_eq!(set.len(), 1);
+    ///
     /// ```
     pub fn take<KEY>(&mut self, key: &KEY) -> Option<T>
         where KEY: ?Sized + Ord, T: Borrow<KEY>
@@ -297,6 +298,33 @@ impl <T> HiSet<T>
         self.root.take_node_by_key(key).map(|node| node.value )
     }
 
+    /// Take an entry by reference to another value and return it.
+    /// Whatever you use as key must give the same Ord results as Ord on &T!
+    ///
+    ///  # Examples:
+    ///
+    /// ```
+    ///     # use hitree::hiset::HiSet;
+    ///     let mut set = HiSet::<String>::new();
+    ///     assert_eq!(set.insert("first"), true);
+    ///     assert_eq!(set.insert("second"), true);
+    ///     assert_eq!(set.insert("third"), true);
+    ///     assert_eq!(set.len(), 3);
+    ///
+    ///     assert_eq!(set.take_by_index(2).unwrap().as_str(), "third");
+    ///     assert_eq!(set.len(), 2);
+    ///
+    ///     assert_eq!(set.take_by_index(3), None);
+    ///
+    ///     assert_eq!(set.take_by_index(1).unwrap().as_str(), "second");
+    ///     assert_eq!(set.len(), 1);
+    ///
+    ///     assert_eq!(set.take_by_index(0).unwrap().as_str(), "first");
+    ///     assert_eq!(set.len(), 0);
+    /// ```
+    pub fn take_by_index(&mut self, index: usize) -> Option<T> {
+        self.root.take_node_by_index(index).map(|node| node.value )
+    }
 
 
 }
@@ -586,6 +614,70 @@ impl <T> Ref<T>
         res
     }
 
+    fn take_node_by_index(&mut self, index_to_take: usize) -> Option<Box<Node<T>>> {
+        let res = if let Some(node) = self.node_mut() {
+            let index_of_this_node = node.left.count;
+            match Ord::cmp(&index_of_this_node, &index_to_take) {
+                Ordering::Equal => {    // this is the node to remove
+                    match (node.left.is_empty(), node.right.is_empty()) {
+                        (true, true) => {    // leaf node, can be removed directly without consequences
+                            self.node.take()
+                        },
+                        (false, true) => {   // there is a left subrtree, move it up
+                            let mut removed_node = self.node.take().unwrap();
+                            *self = removed_node.left.take();
+                            Some(removed_node)
+                        },
+                        (true, false) => {   // there is a right subtree, move it up
+                            let mut removed_node = self.node.take().unwrap();
+                            *self = removed_node.right.take();
+                            Some(removed_node)
+                        }
+                        (false, false) => {  // there are two subtrees, take the closest node from the one with more nodes and replace the removed node with it
+                            let mut removed_node = self.node.take().unwrap();
+                            let mut left_subtree = removed_node.left.take();
+                            let mut right_subtree = removed_node.right.take();
+                            let mut new_subtree_root_node = if left_subtree.count > right_subtree.count {
+                                left_subtree.take_rightmost_node().unwrap()
+                            } else {
+                                right_subtree.take_leftmost_node().unwrap()
+                            };
+                            new_subtree_root_node.left = left_subtree;
+                            new_subtree_root_node.right = right_subtree;
+                            let new_count = new_subtree_root_node.count();
+                            self.node = Some(new_subtree_root_node);
+                            self.count = new_count;
+                            // balance should not be an issue, we took from the bigger one
+                            Some(removed_node)
+                        }
+                    }
+                },
+                Ordering::Less => {     // node must be in the right subtree
+                    let removed_node_maybe = node.right.take_node_by_index(index_to_take - index_of_this_node - 1);
+                    match removed_node_maybe {
+                        None => None,   // not found
+                        Some(removed_node) => {
+                            Some(removed_node)
+                        }
+                    }
+                },
+                Ordering::Greater => {  // node must be in the left subtree
+                    match node.left.take_node_by_index(index_to_take) {
+                        None => None,
+                        Some(removed_node) => {
+                            Some(removed_node)
+                        }
+                    }
+                }
+            }
+        } else {
+            None
+        };
+        if res.is_some() {
+            self.rebalance();
+        }
+        res
+    }
 
     fn rebalance(&mut self) {
         if let Some(node) = self.node() {

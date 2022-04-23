@@ -1,0 +1,15 @@
+[package]
+name = "hitree"
+version = "0.1.0"
+edition = "2021"
+authors = [ "Jan Hlavatý" ]
+rust-version = "1.60"
+description = "Indexable containers for Rust: HiSet and HiMap"
+repository = "https://github.com/hlavaatch/hitree/"
+license = "Apache-2.0"
+keywords = ["container","set","map","indexable"]
+categories = ["data-structures","algorithms"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]

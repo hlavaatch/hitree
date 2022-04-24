@@ -884,31 +884,8 @@ impl <T> Node<T>
         self.value.borrow_mut()
     }
 
-
-
-
-}
-/*
-// Compare Nodes by their values
-impl <T: Ord> PartialEq for Node<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.value.eq(&other.value)
-    }
-}
-impl <T: Ord> Eq for Node<T> {}
-
-impl <T: Ord> PartialOrd for Node<T> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.value.partial_cmp(&other.value)
-    }
 }
 
-impl <T: Ord> Ord for Node<T> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.value.cmp(&other.value)
-    }
-}
-*/
 
 
 
@@ -916,49 +893,3 @@ impl <T: Ord> Ord for Node<T> {
 
 
 
-
-//-------------- unit tests ---------------------
-#[test]
-fn test_hiset_new() {
-    let _set = HiSet::<String>::new();
-}
-
-#[test]
-fn test_hiset_index_of() {
-    let mut s = HiSet::<String>::new();
-    s.insert("4");
-    s.insert("2");
-    s.insert("0");
-    s.insert("1");
-    s.insert("3");
-
-    assert_eq!(s.index_of("0"), Some(0));
-    assert_eq!(s.index_of("1"), Some(1));
-    assert_eq!(s.index_of("2"), Some(2));
-    assert_eq!(s.index_of("3"), Some(3));
-    assert_eq!(s.index_of("4"), Some(4));
-    assert_eq!(s.index_of("5"), None);
-
-    s.take("2");
-
-    assert_eq!(s.index_of("0"), Some(0));
-    assert_eq!(s.index_of("1"), Some(1));
-    assert_eq!(s.index_of("2"), None);
-    assert_eq!(s.index_of("3"), Some(2));
-    assert_eq!(s.index_of("4"), Some(3));
-    assert_eq!(s.index_of("5"), None);
-
-
-    let mut set = HiSet::<String>::new();
-    set.insert("This");
-    set.insert("is");
-    set.insert("a");
-    set.insert("test!");
-
-    assert_eq!(set.index_of("This"), Some(0));
-    assert_eq!(set.index_of("is"), Some(2));
-    assert_eq!(set.index_of("a"), Some(1));
-    assert_eq!(set.index_of("test!"), Some(3));
-    assert_eq!(set.index_of("nonexistent"), None);
-
-}

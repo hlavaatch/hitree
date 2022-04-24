@@ -1,5 +1,4 @@
 //use std::fmt::{Debug,Display,Formatter};
-
 use std::borrow::{Borrow, BorrowMut};
 use std::cmp::Ordering;
 use super::tree_height;
@@ -50,6 +49,13 @@ impl <T> HiSet<T>
     pub fn new() -> HiSet<T> {
         HiSet { root: Ref::default() }
     }
+
+
+
+
+
+
+
 
     /// Return current number of entries in the set.
     ///
@@ -465,6 +471,282 @@ impl <T> HiSet<T>
     }
 
 
+
+
+    /// Return iterator over all &T.
+    ///
+    ///
+    pub fn iter(&self) -> HiSetIterator<'_,T> {
+        HiSetIterator { set: self, start: 0, end: self.root.count }
+    }
+
+
+    /// Return double ended iterator over &T in given index range.
+    ///
+    /// # Examples:
+    /// ```
+    ///   #  use hitree::hiset::HiSet;
+    ///     let s = HiSet::<i32>::from([0,1,2,3,4,5,6].into_iter());
+    ///     let mut r = s.range(2..=5).map(|v| *v);
+    ///     assert!(r.eq( [2,3,4,5].into_iter() ));
+    /// ```
+    pub fn range(&self, range: impl std::ops::RangeBounds<usize>) -> HiSetIterator<'_,T> {
+        use std::ops::Bound::*;
+        let start = match range.start_bound() {
+            Included(index) => *index,
+            Excluded(index) => *index + 1,
+            Unbounded => 0
+        };
+        let end = match range.end_bound() {
+            Included(index) => *index + 1,
+            Excluded(index) => *index,
+            Unbounded => self.root.count
+        };
+
+        HiSetIterator { set: self, start, end }
+    }
+}
+
+#[test]
+fn test_hiset_range() {
+        let s = HiSet::<i32>::from([0,1,2,3,4,5,6].into_iter());
+        let mut r = s.range(2..=5).map(|v| *v);
+        eprintln!("{:?}",r.collect::<Vec<i32>>());
+        //assert!(r.eq( [2,3,4,5].into_iter() ));
+}
+
+pub struct HiSetOwnedIterator<T>
+    where T: Ord
+{
+    root: Ref<T>,
+}
+
+impl <T> Iterator for HiSetOwnedIterator<T>
+    where T: Ord
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // take leftmost node without bothering to re-balance or maintain node counts
+        self.root.consume_next()
+    }
+}
+
+impl <T> IntoIterator for HiSet<T>
+    where T: Ord
+{
+    type Item = T;
+    type IntoIter = HiSetOwnedIterator<T>;
+
+    /// Turn HiSet<T> into Iterator of owned T
+    /// ```
+    ///  # use hitree::hiset::HiSet;
+    /// let mut s = HiSet::<String>::new();
+    /// s.insert("This");
+    /// s.insert("is");
+    /// s.insert("a");
+    /// s.insert("test!");
+    ///
+    /// let mut i = s.into_iter();
+    /// assert_eq!(i.next(), Some("This".to_string()));
+    /// assert_eq!(i.next(), Some("a".to_string()));
+    /// assert_eq!(i.next(), Some("is".to_string()));
+    /// assert_eq!(i.next(), Some("test!".to_string()));
+    /// assert_eq!(i.next(), None);
+    /// ```
+    fn into_iter(self) -> Self::IntoIter {
+        HiSetOwnedIterator { root: self.root }
+    }
+}
+
+
+
+/// Get iterator over &T
+///
+/// # Examples:
+///
+/// ```
+///  # use hitree::hiset::HiSet;
+/// let mut s = HiSet::<String>::new();
+/// s.insert("This");
+/// s.insert("is");
+/// s.insert("a");
+/// s.insert("test!");
+///
+/// let mut i = s.iter();
+///
+/// assert_eq!(i.next(), Some(&"This".to_string()));
+/// assert_eq!(i.next(), Some(&"a".to_string()));
+/// assert_eq!(i.next(), Some(&"is".to_string()));
+/// assert_eq!(i.next(), Some(&"test!".to_string()));
+/// assert_eq!(i.next(), None);
+///
+/// ```
+pub struct HiSetIterator<'set,T>
+    where T: Ord
+{
+    set:    &'set HiSet<T>,
+    start:  usize,
+    end:    usize,
+}
+
+impl <'set,T> Iterator for HiSetIterator<'set,T>
+    where T: Ord
+{
+    type Item = &'set T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.start >= self.end {
+            None
+        } else {
+            let index_to_return = self.start;
+            self.start += 1;
+            self.set.get_by_index(index_to_return)
+        }
+    }
+}
+
+impl <'set,T> DoubleEndedIterator for HiSetIterator<'set,T>
+    where T: Ord
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.start >= self.end {
+            None
+        } else {
+            self.end -= 1;
+            self.set.get_by_index(self.end)
+        }
+    }
+}
+
+
+
+
+impl <'set,T> IntoIterator for &'set HiSet<T>
+    where T: Ord
+{
+    type Item = &'set T;
+    type IntoIter = HiSetIterator<'set,T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+/*
+/// Get iterator over &mut T
+///
+/// # Examples:
+///
+/// ```
+///  # use hitree::hiset::HiSet;
+/// let mut s = HiSet::<String>::new();
+/// s.insert("This");
+/// s.insert("is");
+/// s.insert("a");
+/// s.insert("test!");
+///
+/// let mut i = s.iter_mut();
+///
+/// assert_eq!(i.next(), Some(&mut "This".to_string()));
+/// assert_eq!(i.next(), Some(&mut "a".to_string()));
+/// assert_eq!(i.next(), Some(&mut "is".to_string()));
+/// assert_eq!(i.next(), Some(&mut "test!".to_string()));
+/// assert_eq!(i.next(), None);
+///
+/// ```
+pub struct HiSetIteratorMut<'set,T>
+    where T: Ord
+{
+    set:    &'set mut HiSet<T>,
+    start:  usize,
+    end:    usize,
+}
+
+impl <'set,T> Iterator for HiSetIteratorMut<'set,T>
+    where T: Ord,
+{
+    type Item = &'set mut T;
+
+    fn next<'iter>(&mut self) -> Option<Self::Item> {
+        if self.start >= self.end {
+            None
+        } else {
+            let index_to_return = self.start;
+            self.start += 1;
+            self.set.get_by_index_mut(index_to_return)
+        }
+    }
+}
+
+impl <'set,T> IntoIterator for &'set mut HiSet<T>
+    where T: Ord
+{
+    type Item = &'set mut T;
+    type IntoIter = HiSetIteratorMut<'set,T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_mut()
+    }
+}
+*/
+
+
+/*
+/// Construct HiSet from slice of values.
+impl <T,X,O> From<&[X]> for HiSet<T>
+    where T: Ord,
+          O: Into<T>,
+          X: ToOwned<Owned=O>
+{
+    fn from(src: &[X]) -> Self {
+        let mut s = HiSet::<T>::new();
+        for x in src {
+            s.insert(x.to_owned());
+        }
+        s
+    }
+}
+
+
+#[test]
+fn test_hiset_from_slice() {
+
+    let testdata = vec!["start","This","is","a","test!","some","other","entries"];
+
+    let s = HiSet::<String>::from( &testdata[1..5] );
+
+    assert!(s.iter().eq(["This","a","is","test!"].iter()));
+
+
+
+}
+
+*/
+
+impl <T,I,X,O> From<I> for HiSet<T>
+    where T: Ord,
+          I: Iterator<Item=X>,
+          O: Into<T>,
+          X: ToOwned<Owned=O>
+{
+    /// Construct HiSet from Iterator of values that can be made into owned instances of T
+    ///
+    /// # Examples:
+    ///
+    /// ```
+    /// # use hitree::hiset::HiSet;
+    /// let s = HiSet::<String>::from( ["This","is","a","test!"].into_iter() );
+    ///
+    /// assert!(s.iter().eq(["This","a","is","test!"].iter()));
+    /// ```
+    fn from(mut iterator: I) -> Self {
+        let mut s = HiSet::<T>::new();
+        while let Some(value) = iterator.next() {
+            s.insert(value.to_owned());
+        }
+        s
+    }
 }
 
 //---------------- Ref -------------------------------------------------------
@@ -832,6 +1114,23 @@ impl <T> Ref<T>
     }
 
 
+    /// Take fist value without bothering to re-balance or maintain node counts. For use within owned iterator.
+    fn consume_next(&mut self) -> Option<T> {
+        // Take node from left subrtree if any, or
+        // Take node from yourself, replacing it with the right subtree root node if any
+        match &mut self.node {
+            None => None,   // no nodes left, end of iteration
+            Some(node) => {
+                if let Some(from_left) = node.left.consume_next() {
+                    Some(from_left)
+                } else {
+                    let right_node = node.right.node.take();
+                    let my_node = unsafe { std::mem::replace(&mut self.node, right_node ).unwrap_unchecked() };
+                    Some(my_node.value)
+                }
+            }
+        }
+    }
 }
 
 impl <T> Default for Ref<T>

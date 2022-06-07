@@ -510,9 +510,8 @@ impl <T> HiSet<T>
 #[test]
 fn test_hiset_range() {
         let s = HiSet::<i32>::from([0,1,2,3,4,5,6].into_iter());
-        let mut r = s.range(2..=5).map(|v| *v);
-        eprintln!("{:?}",r.collect::<Vec<i32>>());
-        //assert!(r.eq( [2,3,4,5].into_iter() ));
+        let r = s.range(2..=5).map(|v| *v);
+        assert!(r.eq( [2,3,4,5].into_iter() ));
 }
 
 pub struct HiSetOwnedIterator<T>
@@ -978,7 +977,7 @@ impl <T> Ref<T>
                         (true, true) => {    // leaf node, can be removed directly without consequences
                             self.node.take()
                         },
-                        (false, true) => {   // there is a left subrtree, move it up
+                        (false, true) => {   // there is a left subtree, move it up
                             let mut removed_node = self.node.take().unwrap();
                             *self = removed_node.left.take();
                             Some(removed_node)
@@ -1043,7 +1042,7 @@ impl <T> Ref<T>
                         (true, true) => {    // leaf node, can be removed directly without consequences
                             self.node.take()
                         },
-                        (false, true) => {   // there is a left subrtree, move it up
+                        (false, true) => {   // there is a left subtree, move it up
                             let mut removed_node = self.node.take().unwrap();
                             *self = removed_node.left.take();
                             Some(removed_node)
@@ -1116,7 +1115,7 @@ impl <T> Ref<T>
 
     /// Take fist value without bothering to re-balance or maintain node counts. For use within owned iterator.
     fn consume_next(&mut self) -> Option<T> {
-        // Take node from left subrtree if any, or
+        // Take node from left subtree if any, or
         // Take node from yourself, replacing it with the right subtree root node if any
         match &mut self.node {
             None => None,   // no nodes left, end of iteration

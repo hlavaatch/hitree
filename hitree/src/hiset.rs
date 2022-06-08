@@ -632,7 +632,7 @@ impl <'set,T> IntoIterator for &'set HiSet<T>
     }
 }
 
-/*
+
 /// Get iterator over &mut T
 ///
 /// # Examples:
@@ -673,7 +673,7 @@ impl <'set,T> Iterator for HiSetIteratorMut<'set,T>
         } else {
             let index_to_return = self.start;
             self.start += 1;
-            self.set.get_by_index_mut(index_to_return)
+            unsafe { std::mem::transmute(self.set.get_by_index_mut(index_to_return)) }
         }
     }
 }
@@ -688,40 +688,17 @@ impl <'set,T> IntoIterator for &'set mut HiSet<T>
         self.iter_mut()
     }
 }
-*/
 
-
-/*
-/// Construct HiSet from slice of values.
-impl <T,X,O> From<&[X]> for HiSet<T>
-    where T: Ord,
-          O: Into<T>,
-          X: ToOwned<Owned=O>
+impl <T> HiSet<T>
+    where T: Ord
 {
-    fn from(src: &[X]) -> Self {
-        let mut s = HiSet::<T>::new();
-        for x in src {
-            s.insert(x.to_owned());
-        }
-        s
+    pub fn iter_mut(&mut self) -> HiSetIteratorMut<'_,T> {
+        let end = self.root.count;
+        HiSetIteratorMut { set: self, start: 0, end }
     }
-}
-
-
-#[test]
-fn test_hiset_from_slice() {
-
-    let testdata = vec!["start","This","is","a","test!","some","other","entries"];
-
-    let s = HiSet::<String>::from( &testdata[1..5] );
-
-    assert!(s.iter().eq(["This","a","is","test!"].iter()));
-
-
 
 }
 
-*/
 
 impl <T,I,X,O> From<I> for HiSet<T>
     where T: Ord,

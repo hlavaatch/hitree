@@ -487,10 +487,10 @@ impl <T> HiSet<T>
     /// ```
     ///   #  use hitree::hiset::HiSet;
     ///     let s = HiSet::<i32>::from([0,1,2,3,4,5,6].into_iter());
-    ///     let mut r = s.range(2..=5).map(|v| *v);
+    ///     let mut r = s.range_by_index(2..=5).map(|v| *v);
     ///     assert!(r.eq( [2,3,4,5].into_iter() ));
     /// ```
-    pub fn range(&self, range: impl std::ops::RangeBounds<usize>) -> HiSetIterator<'_,T> {
+    pub fn range_by_index(&self, range: impl std::ops::RangeBounds<usize>) -> HiSetIterator<'_,T> {
         use std::ops::Bound::*;
         let start = match range.start_bound() {
             Included(index) => *index,
@@ -505,12 +505,40 @@ impl <T> HiSet<T>
 
         HiSetIterator { set: self, start, end }
     }
+
+    /// Return double ended iterator over &mut T in given index range.
+    ///
+    /// # Examples:
+    /// ```
+    ///   #  use hitree::hiset::HiSet;
+    ///     let mut s = HiSet::<i32>::from([0,1,2,3,4,5,6].into_iter());
+    ///     let mut r = s.range_by_index_mut(2..=5).map(|v| *v);
+    ///     assert!(r.eq( [2,3,4,5].into_iter() ));
+    /// ```
+    pub fn range_by_index_mut(&mut self, range: impl std::ops::RangeBounds<usize>) -> HiSetIteratorMut<'_,T> {
+        use std::ops::Bound::*;
+        let start = match range.start_bound() {
+            Included(index) => *index,
+            Excluded(index) => *index + 1,
+            Unbounded => 0
+        };
+        let end = match range.end_bound() {
+            Included(index) => *index + 1,
+            Excluded(index) => *index,
+            Unbounded => self.root.count
+        };
+
+        HiSetIteratorMut { set: self, start, end }
+    }
+
+
+
 }
 
 #[test]
 fn test_hiset_range() {
-        let s = HiSet::<i32>::from([0,1,2,3,4,5,6].into_iter());
-        let r = s.range(2..=5).map(|v| *v);
+        let s = HiSet::<i32>::from([0,1,2,3,4,5,6].into_iter() );
+        let r = s.range_by_index(2..=5).map(|v| *v);
         assert!(r.eq( [2,3,4,5].into_iter() ));
 }
 
@@ -537,7 +565,7 @@ impl <T> IntoIterator for HiSet<T>
     type Item = T;
     type IntoIter = HiSetOwnedIterator<T>;
 
-    /// Turn HiSet<T> into Iterator of owned T
+    /// Turn HiSet<T> into an Iterator of owned T
     /// ```
     ///  # use hitree::hiset::HiSet;
     /// let mut s = HiSet::<String>::new();
@@ -678,6 +706,19 @@ impl <'set,T> Iterator for HiSetIteratorMut<'set,T>
     }
 }
 
+impl <'set,T> DoubleEndedIterator for HiSetIteratorMut<'set,T>
+    where T: Ord
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.start >= self.end {
+            None
+        } else {
+            self.end -= 1;
+            unsafe { std::mem::transmute(self.set.get_by_index_mut(self.end)) }
+        }
+    }
+}
+
 impl <'set,T> IntoIterator for &'set mut HiSet<T>
     where T: Ord
 {
@@ -706,7 +747,7 @@ impl <T,I,X,O> From<I> for HiSet<T>
           O: Into<T>,
           X: ToOwned<Owned=O>
 {
-    /// Construct HiSet from Iterator of values that can be made into owned instances of T
+    /// Construct HiSet from an Iterator of values that can be made into owned instances of T
     ///
     /// # Examples:
     ///
@@ -724,6 +765,7 @@ impl <T,I,X,O> From<I> for HiSet<T>
         s
     }
 }
+
 
 //---------------- Ref -------------------------------------------------------
 

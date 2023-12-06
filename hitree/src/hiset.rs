@@ -10,7 +10,7 @@ pub struct HiSet<T: Ord> {
     root: Ref<T>,
 }
 
-/// Reference to a subtree of Nodes, including node count of subtree pointed to by it.
+/// Reference to a subtree of `Node`s, including node count of subtree pointed to by it.
 struct Ref<T>
     where T: Ord
 {
@@ -35,7 +35,7 @@ struct Node<T>
 impl <T> HiSet<T>
     where T: Ord
 {
-    /// Create new empty HiSet.
+    /// Create new empty `HiSet`.
     ///
     /// Does not allocate anything.
     ///
@@ -76,7 +76,7 @@ impl <T> HiSet<T>
     /// Insert a new value into the set.
     /// If the value was not in the set, return true.
     /// If the value was already in the set, return false and don't touch the old value.
-    /// Value can be any type that can be converted into the value type using Into trait.
+    /// Value can be any type that can be converted into the value type using `Into` trait.
     ///
     /// # Examples:
     ///
@@ -88,7 +88,7 @@ impl <T> HiSet<T>
     ///     assert_eq!(hiset.insert(1), false);
     ///     assert_eq!(hiset.len(), 2);
     /// ```
-    /// You can insert &str into `HiSet<String>` for example:
+    /// You can insert `&str` into `HiSet<String>` for example:
     /// ```
     ///     # use hitree::hiset::HiSet;
     ///     let mut hiset = HiSet::<String>::new(); // This is a set of Strings
@@ -226,7 +226,7 @@ impl <T> HiSet<T>
     }
 
 
-    /// Borrow value from set by key reference.
+    /// Borrow a value from the set by a key reference.
     /// Reference type of key must have the same `Ord` ordering as `&T`.
     ///
     /// # Examples:
@@ -443,7 +443,7 @@ impl <T> HiSet<T>
     }
 
     /// Take an entry by reference to another value and return it.
-    /// Whatever you use as key must give the same Ord results as Ord on &T!
+    /// Whatever you use as key must give the same `Ord` results as `Ord` on `&T`!
     ///
     ///  # Examples:
     ///
@@ -473,7 +473,7 @@ impl <T> HiSet<T>
 
 
 
-    /// Return iterator over all &T.
+    /// Return iterator over all `&T`.
     ///
     ///
     pub fn iter(&self) -> HiSetIterator<'_,T> {
@@ -481,7 +481,7 @@ impl <T> HiSet<T>
     }
 
 
-    /// Return double ended iterator over &T in given index range.
+    /// Return double ended iterator over `&T` in given index range.
     ///
     /// # Examples:
     /// ```
@@ -506,7 +506,7 @@ impl <T> HiSet<T>
         HiSetIterator { set: self, start, end }
     }
 
-    /// Return double ended iterator over &mut T in given index range.
+    /// Return double ended iterator over `&mut T` in given index range.
     ///
     /// # Examples:
     /// ```
@@ -565,7 +565,7 @@ impl <T> IntoIterator for HiSet<T>
     type Item = T;
     type IntoIter = HiSetOwnedIterator<T>;
 
-    /// Turn HiSet<T> into an Iterator of owned T
+    /// Turn `HiSet<T>` into an `Iterator` of owned `T`
     /// ```
     ///  # use hitree::hiset::HiSet;
     /// let mut s = HiSet::<String>::new();
@@ -588,7 +588,7 @@ impl <T> IntoIterator for HiSet<T>
 
 
 
-/// Get iterator over &T
+/// Get iterator over `&T`
 ///
 /// # Examples:
 ///
@@ -661,27 +661,6 @@ impl <'set,T> IntoIterator for &'set HiSet<T>
 }
 
 
-/// Get iterator over &mut T
-///
-/// # Examples:
-///
-/// ```
-///  # use hitree::hiset::HiSet;
-/// let mut s = HiSet::<String>::new();
-/// s.insert("This");
-/// s.insert("is");
-/// s.insert("a");
-/// s.insert("test!");
-///
-/// let mut i = s.iter_mut();
-///
-/// assert_eq!(i.next(), Some(&mut "This".to_string()));
-/// assert_eq!(i.next(), Some(&mut "a".to_string()));
-/// assert_eq!(i.next(), Some(&mut "is".to_string()));
-/// assert_eq!(i.next(), Some(&mut "test!".to_string()));
-/// assert_eq!(i.next(), None);
-///
-/// ```
 pub struct HiSetIteratorMut<'set,T>
     where T: Ord
 {
@@ -733,6 +712,27 @@ impl <'set,T> IntoIterator for &'set mut HiSet<T>
 impl <T> HiSet<T>
     where T: Ord
 {
+    /// Get iterator over `&mut T`
+    ///
+    /// # Examples:
+    ///
+    /// ```
+    ///  # use hitree::hiset::HiSet;
+    /// let mut s = HiSet::<String>::new();
+    /// s.insert("This");
+    /// s.insert("is");
+    /// s.insert("a");
+    /// s.insert("test!");
+    ///
+    /// let mut i = s.iter_mut();
+    ///
+    /// assert_eq!(i.next(), Some(&mut "This".to_string()));
+    /// assert_eq!(i.next(), Some(&mut "a".to_string()));
+    /// assert_eq!(i.next(), Some(&mut "is".to_string()));
+    /// assert_eq!(i.next(), Some(&mut "test!".to_string()));
+    /// assert_eq!(i.next(), None);
+    ///
+    /// ```
     pub fn iter_mut(&mut self) -> HiSetIteratorMut<'_,T> {
         let end = self.root.count;
         HiSetIteratorMut { set: self, start: 0, end }
@@ -747,7 +747,7 @@ impl <T,I,X,O> From<I> for HiSet<T>
           O: Into<T>,
           X: ToOwned<Owned=O>
 {
-    /// Construct HiSet from an Iterator of values that can be made into owned instances of T
+    /// Construct `HiSet<T>` from an `Iterator` of values that can be made into owned instances of `T`
     ///
     /// # Examples:
     ///
